@@ -1,0 +1,45 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
+@import "tailwindcss";
+
+@theme {
+  /* Tipografía */
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Colores ENSO */
+  --color-brand-primary: #5d44a6;
+  --color-brand-surface: #f2f0ff;
+  
+  --color-fp-primary: #00519f;
+  --color-fp-surface: #e5f0fa;
+  
+  --color-eso-primary: #35ac59;
+  --color-eso-surface: #f2f0ff;
+  
+  --color-text-main: #1f2937;
+  --color-text-body: #4b5563;
+  --color-text-muted: #9ca3af;
+  
+  --color-bg-app: #f3f4f6;
+  --color-bg-card: #ffffff;
+  --color-border-line: #e5e7eb;
+  
+  /* Estados del sistema */
+  --color-state-success: #16a34a;
+  --color-state-success-subtle: #dcfce7;
+  --color-state-warning: #d97706;
+  --color-state-warning-subtle: #fef3c7;
+  --color-state-error: #dc2626;
+  --color-state-error-subtle: #fee2e2;
+  --color-state-info: #6b7280;
+  --color-state-info-subtle: #f3f4f6;
+}
+
+/* TRUCO PRO: Inyectar estilos base globales */
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-bg-app);
+    color: var(--color-text-main);
+  }
+}
