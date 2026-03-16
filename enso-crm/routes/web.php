@@ -26,12 +26,15 @@ Route::get('/', function (Request $request) {
 // ==============================================================================
 // Añadimos 'role:Admin,Gestor' al middleware array
 Route::middleware(['auth', 'verified', 'role:Admin,Gestor'])->prefix('admin')->group(function () {
-    
+
     Route::get('/dashboard', function () {
         return Inertia::render('Admin/Dashboard');
     })->name('admin.dashboard');
 
-Route::get('/users', [UserController::class, 'index'])->name('admin.users');
+    Route::get('/users', [UserController::class, 'index'])->name('admin.users');
+
+    Route::post('/users', [UserController::class, 'store'])->name('admin.users.store');
+    Route::put('/users/{id}', [UserController::class, 'update'])->name('admin.users.update');
 
     Route::get('/exercises', function () {
         return Inertia::render('Admin/Exercises');
@@ -40,7 +43,6 @@ Route::get('/users', [UserController::class, 'index'])->name('admin.users');
     Route::get('/collections', function () {
         return Inertia::render('Admin/Collections');
     })->name('admin.collections');
-
 });
 
 
@@ -49,12 +51,11 @@ Route::get('/users', [UserController::class, 'index'])->name('admin.users');
 // ==============================================================================
 // Añadimos 'role:Jugador' al middleware array
 Route::middleware(['auth', 'verified', 'role:Jugador'])->prefix('player')->group(function () {
-    
+
     Route::get('/dashboard', function () {
         return Inertia::render('Player/Dashboard');
     })->name('player.dashboard');
-
 });
 
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

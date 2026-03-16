@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import { 
-  Users, Library, Book, 
+  Users, Book, 
   LogOut, X, ChevronRight, Home, Folder
 } from 'lucide-react';
 import { Role } from '../../types';
@@ -36,7 +36,6 @@ const getNavItems = (role?: Role): NavItem[] => {
         { name: 'Dashboard', path: '/admin/dashboard', icon: Home },
         { name: 'Usuarios', path: '/admin/users', icon: Users },
         { name: 'Ejercicios', path: '/admin/exercises', icon: Book },
-        { name: 'Colecciones', path: '/admin/collections', icon: Library },
       ];
     default:
       return [];

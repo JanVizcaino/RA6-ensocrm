@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, usePage } from "@inertiajs/react";
 import {
-  Menu, Bell, ChevronRight, Home, Search,
+  Menu, Bell, Home,
   CircleHelp, UserCircle, Rocket, Trophy, Heart, LogOut,
 } from "lucide-react";
 import { PageProps, Role } from "../../types";
@@ -13,9 +13,17 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, userRole }) => {
-  const { props } = usePage<PageProps>();
+  const { url, props } = usePage<PageProps>();
   const { user } = props.auth;
   const roleName = userRole?.name;
+
+  const getPageTitle = (currentUrl: string) => {
+    if (currentUrl.includes('/dashboard')) return 'Dashboard';
+    if (currentUrl.includes('/users')) return 'Directorio de Usuarios';
+    if (currentUrl.includes('/exercises')) return 'Librería de Ejercicios';
+    if (currentUrl.includes('/collections')) return 'Colecciones';
+    return 'Panel de Control'; 
+  };
 
   if (roleName === "Admin") {
     return (
@@ -29,42 +37,16 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, userRole }) => 
             <Menu className="w-5 h-5" />
           </button>
 
-          <div className="hidden md:flex items-center text-sm text-text-muted font-medium">
-            <Home size={14} className="mr-2" />
-            <span>Dashboard</span>
-            <ChevronRight size={14} className="mx-1 opacity-50" />
-            <span className="text-text-main">Overview</span>
+          <div className="hidden md:flex items-center text-sm text-text-main">
+            <span>{getPageTitle(url)}</span>
           </div>
         </div>
 
         <div className="flex items-center gap-5">
-          <div className="hidden lg:flex items-center bg-bg-app rounded-full px-3 py-1.5 gap-2 border border-transparent focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-brand-primary transition-all">
-            <Search className="w-4 h-4 text-text-muted ml-1" />
-            <input
-              type="text"
-              placeholder="Search..."
-              className="bg-transparent border-none focus:ring-0 text-sm text-text-main w-48 placeholder:text-text-muted outline-none"
-            />
-            <div className="px-1.5 py-0.5 rounded outline -outline-offset-1 outline-border-line bg-bg-card text-[10px] text-text-muted font-mono tracking-tighter">
-              Ctrl K
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 text-text-muted">
-            <button className="p-1.5 rounded-full hover:bg-bg-app hover:text-brand-primary transition-colors">
-              <Bell className="w-5 h-5" />
-            </button>
-            <button className="p-1.5 rounded-full hover:bg-bg-app hover:text-brand-primary transition-colors">
-              <CircleHelp className="w-5 h-5" />
-            </button>
-          </div>
-
-          <div className="w-px h-6 bg-border-line mx-1" />
-
           <div className="flex items-center gap-3 cursor-pointer group">
             <div className="text-right hidden sm:block">
               <p className="text-sm font-bold text-text-main leading-tight group-hover:text-brand-primary transition-colors">
-                {user.name}
+                {user?.name}
               </p>
               <p className="text-[10px] text-text-muted uppercase tracking-wider font-semibold">
                 {roleName}
@@ -84,14 +66,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, userRole }) => 
       <div className="flex items-center gap-10">
         <Logo className="h-10 text-brand-primary" />
         <nav className="flex items-center gap-8">
-          <Link href="/alumn/dashboard" className="flex items-center gap-2 text-text-body hover:text-brand-primary transition-colors font-medium">
+          <Link href="/player/dashboard" className="flex items-center gap-2 text-text-body hover:text-brand-primary transition-colors font-medium">
             <Rocket className="w-4 h-4" /> Inicio
-          </Link>
-          <Link href="/alumn/progress" className="flex items-center gap-2 text-text-body hover:text-brand-primary transition-colors font-medium">
-            <Trophy className="w-4 h-4" /> Progreso
-          </Link>
-          <Link href="/alumn/space" className="flex items-center gap-2 text-text-body hover:text-brand-primary transition-colors font-medium">
-            <Heart className="w-4 h-4" /> Mi espacio
           </Link>
         </nav>
       </div>
@@ -106,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, userRole }) => 
             <UserCircle className="w-5 h-5" />
           </div>
           <p className="text-text-main text-sm">
-            Hola, <span className="font-bold">{user.name}</span>
+            Hola, <span className="font-bold">{user?.name}</span>
           </p>
         </div>
         <Link href={route('logout')} method="post" as="button" className="flex items-center text-sm text-text-muted hover:text-state-error transition-colors">

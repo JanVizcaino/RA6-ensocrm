@@ -15,9 +15,10 @@ export interface UserData {
 
 interface UsersTableProps {
   users: UserData[];
+  onEdit?: (user: UserData) => void;
 }
 
-export const UsersTable: React.FC<UsersTableProps> = ({ users }) => {
+export const UsersTable: React.FC<UsersTableProps> = ({ users = [], onEdit }) => {
   return (
     <Table>
       <TableHeader>
@@ -70,7 +71,7 @@ export const UsersTable: React.FC<UsersTableProps> = ({ users }) => {
             
             <TableCell>
               <div className="flex items-center justify-end gap-2">
-                <Button variant="icon-only" icon={<Pencil size={16} />} aria-label="Editar Usuario" />
+                <Button variant="icon-only" icon={<Pencil size={16} />} aria-label="Editar Usuario" onClick={() => onEdit?.(user)}/>
               </div>
             </TableCell>
             

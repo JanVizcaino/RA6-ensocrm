@@ -19,7 +19,7 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
         flex justify-between items-center w-full 
         px-6 py-3.5 
         bg-bg-card rounded-lg 
-        outline outline-1 -outline-offset-1 outline-border-line 
+        outline-1 -outline-offset-1 outline-border-line 
         gap-4
         ${className}
       `}
