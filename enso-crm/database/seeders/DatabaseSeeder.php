@@ -3,42 +3,40 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Models\Game;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Crear los Roles de ENSO
-        $roles = [
-            ['name' => 'Admin'],
-            ['name' => 'Gestor'],
-            ['name' => 'Jugador'],
-        ];
-        DB::table('enso_roles')->insert($roles);
-
-        // 2. Crear un usuario para cada rol
-        User::factory()->create([
-            'name' => 'Administrador ENSO',
-            'email' => 'admin@enso.com',
+        User::create([
+            'name'     => 'Administrador',
+            'email'    => 'admin@enso.com',
             'password' => Hash::make('password123'),
-            'role_id' => 1, // Admin
+            'role'     => 'admin',
         ]);
 
-        User::factory()->create([
-            'name' => 'Gestor Académico',
-            'email' => 'gestor@enso.com',
+        User::create([
+            'name'     => 'Gestor Demo',
+            'email'    => 'gestor@enso.com',
             'password' => Hash::make('password123'),
-            'role_id' => 2, // Gestor
+            'role'     => 'gestor',
         ]);
 
-        User::factory()->create([
-            'name' => 'Jugador Estudiante',
-            'email' => 'jugador@enso.com',
+        User::create([
+            'name'     => 'Jugador Demo',
+            'email'    => 'jugador@enso.com',
             'password' => Hash::make('password123'),
-            'role_id' => 3, // Jugador
+            'role'     => 'player',
+        ]);
+
+        Game::create([
+            'name'         => 'Wisconsin 3D',
+            'description'  => 'Test de clasificación de cartas en 3D. Evalúa la flexibilidad cognitiva.',
+            'path'         => 'CardSortingGame3D',
+            'is_published' => true,
         ]);
     }
 }

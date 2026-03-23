@@ -2,60 +2,64 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Admin\UserController;
 use Inertia\Inertia;
+use App\Http\Controllers\Admin\GameController as AdminGameController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Player\GameController as PlayerGameController;
 
-// 1. EL SEMÁFORO MAESTRO
 Route::get('/', function (Request $request) {
     if (!$request->user()) {
         return redirect()->route('login');
     }
-
-    $roleName = $request->user()->role->name ?? null;
-
-    if ($roleName === 'Jugador') {
-        return redirect()->route('player.dashboard');
-    }
-
-    return redirect()->route('admin.dashboard');
+    return $request->user()->isPlayer()
+        ? redirect()->route('player.dashboard')
+        : redirect()->route('admin.dashboard');
 });
 
+// ==============================================================================
+// ADMIN + GESTOR
+// ==============================================================================
+Route::middleware(['auth', 'role:admin,gestor'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+
+        Route::get('/dashboard', function () {
+            return Inertia::render('Admin/Dashboard');
+        })->name('dashboard');
+
+        Route::get('/games',           [AdminGameController::class, 'index'])->name('games.index');
+        Route::post('/games',          [AdminGameController::class, 'store'])->name('games.store');
+        Route::get('/games/{id}/play', [AdminGameController::class, 'play'])->name('games.play');
+        Route::put('/games/{id}',      [AdminGameController::class, 'update'])->name('games.update');
+        Route::delete('/games/{id}',   [AdminGameController::class, 'destroy'])->name('games.destroy');
+    });
 
 // ==============================================================================
-// 2. RUTAS DE ADMINISTRACIÓN (Protegidas SOLO para Admin y Gestor)
+// SOLO ADMIN
 // ==============================================================================
-// Añadimos 'role:Admin,Gestor' al middleware array
-Route::middleware(['auth', 'verified', 'role:Admin,Gestor'])->prefix('admin')->group(function () {
+Route::middleware(['auth', 'role:admin'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
 
-    Route::get('/dashboard', function () {
-        return Inertia::render('Admin/Dashboard');
-    })->name('admin.dashboard');
-
-    Route::get('/users', [UserController::class, 'index'])->name('admin.users');
-
-    Route::post('/users', [UserController::class, 'store'])->name('admin.users.store');
-    Route::put('/users/{id}', [UserController::class, 'update'])->name('admin.users.update');
-
-    Route::get('/exercises', function () {
-        return Inertia::render('Admin/Exercises');
-    })->name('admin.exercises');
-
-    Route::get('/collections', function () {
-        return Inertia::render('Admin/Collections');
-    })->name('admin.collections');
-});
-
+        Route::get('/users',           [AdminUserController::class, 'index'])->name('users.index');
+        Route::post('/users',          [AdminUserController::class, 'store'])->name('users.store');
+        Route::put('/users/{id}',      [AdminUserController::class, 'update'])->name('users.update');
+        Route::delete('/users/{id}',   [AdminUserController::class, 'destroy'])->name('users.destroy');
+    });
 
 // ==============================================================================
-// 3. RUTAS DE JUGADORES (Protegidas SOLO para Jugadores)
+// PLAYER
 // ==============================================================================
-// Añadimos 'role:Jugador' al middleware array
-Route::middleware(['auth', 'verified', 'role:Jugador'])->prefix('player')->group(function () {
+Route::middleware(['auth', 'role:player'])
+    ->prefix('player')
+    ->name('player.')
+    ->group(function () {
 
-    Route::get('/dashboard', function () {
-        return Inertia::render('Player/Dashboard');
-    })->name('player.dashboard');
-});
-
+        Route::get('/dashboard',            [PlayerGameController::class, 'index'])->name('dashboard');
+        Route::get('/games/{id}/play',      [PlayerGameController::class, 'play'])->name('games.play');
+        Route::post('/games/{id}/finish',   [PlayerGameController::class, 'finish'])->name('games.finish');
+    });
 
 require __DIR__ . '/auth.php';

@@ -4,71 +4,75 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Models\Role;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 
 class UserController extends Controller
 {
     public function index()
     {
-
-        $users = User::with('role')->get()->map(function ($user) {
+        $users = User::orderBy('name')->get()->map(function ($user) {
             return [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->role ? $user->role->name : 'Sin rol',
-                'lastAccess' => $user->updated_at ? $user->updated_at->diffForHumans() : 'Desconocido',
-                'status' => 'active',
+                'id'         => $user->id,
+                'name'       => $user->name,
+                'email'      => $user->email,
+                'role'       => $user->role,
+                'lastAccess' => $user->updated_at?->diffForHumans() ?? 'Desconocido',
+                'status'     => 'active',
             ];
         });
 
         return Inertia::render('Admin/Users', [
-            'users' => $users
+            'users' => $users,
         ]);
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:enso_users,email', 
-            'role' => 'required|string',
+            'name'     => 'required|string|max:100',
+            'email'    => 'required|email|unique:users,email',
+            'password' => 'required|string|min:8',
+            'role'     => 'required|in:admin,gestor,player',
         ]);
-
-        $role = Role::where('name', $validated['role'])->first();
 
         User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => bcrypt('Enso2026!'),
-            'role_id' => $role ? $role->id : 3, 
+            'name'     => $validated['name'],
+            'email'    => $validated['email'],
+            'password' => Hash::make($validated['password']),
+            'role'     => $validated['role'],
         ]);
 
-        return back();
+        return back()->with('success', 'Usuario creado correctamente.');
     }
 
-
-    public function update(Request $request, $id)
+    public function update(Request $request, int $id)
     {
         $user = User::findOrFail($id);
 
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:enso_users,email,' . $id,
-            'role' => 'required|string',
+            'name'     => 'required|string|max:100',
+            'email'    => 'required|email|unique:users,email,' . $id,
+            'role'     => 'required|in:admin,gestor,player',
+            'password' => 'nullable|string|min:8',
         ]);
-
-        
-        $role = Role::whereRaw('LOWER(name) = ?', [strtolower($validated['role'])])->firstOrFail();
 
         $user->update([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'role_id' => $role->id, 
+            'name'     => $validated['name'],
+            'email'    => $validated['email'],
+            'role'     => $validated['role'],
+            'password' => isset($validated['password']) && $validated['password']
+                            ? Hash::make($validated['password'])
+                            : $user->password,
         ]);
 
-        return back();
+        return back()->with('success', 'Usuario actualizado correctamente.');
+    }
+
+    public function destroy(int $id)
+    {
+        User::findOrFail($id)->delete();
+        return back()->with('success', 'Usuario eliminado.');
     }
 }

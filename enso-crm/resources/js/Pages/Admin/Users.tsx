@@ -202,9 +202,9 @@ export default function Users({ users = [] }: Props) {
                                     setData("role", e.target.value)
                                 }
                             >
-                                <option value="Jugador">Jugador</option>
-                                <option value="Gestor">Gestor</option>
-                                <option value="Admin">Administrador</option>
+                                <option value="player">Player</option>
+                                <option value="gestor">Gestor</option>
+                                <option value="admin">Administrador</option>
                             </select>
                         </div>
                     </div>

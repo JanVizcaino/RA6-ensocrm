@@ -6,16 +6,14 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
     public function up(): void {
-        Schema::rename('users', 'enso_users');
-        Schema::table('enso_users', function (Blueprint $table) {
-            $table->foreignId('role_id')->nullable()->constrained('enso_roles')->nullOnDelete();
+        Schema::table('users', function (Blueprint $table) {
+            $table->enum('role', ['admin', 'player'])->default('player')->after('password');
         });
     }
+
     public function down(): void {
-        Schema::table('enso_users', function (Blueprint $table) {
-            $table->dropForeign(['role_id']);
-            $table->dropColumn('role_id');
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn('role');
         });
-        Schema::rename('enso_users', 'users');
     }
 };
