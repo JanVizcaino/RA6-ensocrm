@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  facial-api:
+    build: ./microservicio_facial
+    container_name: facial_service
+    ports:
+      - "8181:5000"
+    restart: always
+    volumes:
+      - deepface_models:/root/.deepface
+
+volumes:
+  deepface_models:

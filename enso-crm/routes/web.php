@@ -47,6 +47,7 @@ Route::middleware(['auth', 'role:admin'])
         Route::post('/users',          [AdminUserController::class, 'store'])->name('users.store');
         Route::put('/users/{id}',      [AdminUserController::class, 'update'])->name('users.update');
         Route::delete('/users/{id}',   [AdminUserController::class, 'destroy'])->name('users.destroy');
+        Route::post('/users/{id}/face', [AdminUserController::class, 'uploadFace'])->name('users.uploadFace');
     });
 
 // ==============================================================================
