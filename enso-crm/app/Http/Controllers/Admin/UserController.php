@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class UserController extends Controller
@@ -14,12 +15,13 @@ class UserController extends Controller
     {
         $users = User::orderBy('name')->get()->map(function ($user) {
             return [
-                'id'         => $user->id,
-                'name'       => $user->name,
-                'email'      => $user->email,
-                'role'       => $user->role,
-                'lastAccess' => $user->updated_at?->diffForHumans() ?? 'Desconocido',
-                'status'     => 'active',
+                'id'              => $user->id,
+                'name'            => $user->name,
+                'email'           => $user->email,
+                'role'            => $user->role,
+                'has_face_photo'  => !empty($user->face_photo_path),
+                'lastAccess'      => $user->updated_at?->diffForHumans() ?? 'Desconocido',
+                'status'          => 'active',
             ];
         });
 
@@ -70,9 +72,39 @@ class UserController extends Controller
         return back()->with('success', 'Usuario actualizado correctamente.');
     }
 
+    public function uploadFace(Request $request, int $id)
+    {
+        $request->validate([
+            'foto' => 'required|image|max:10240',
+        ]);
+
+        $user = User::findOrFail($id);
+
+        // Borrar foto anterior si existe
+        if ($user->face_photo_path && Storage::disk('private')->exists($user->face_photo_path)) {
+            Storage::disk('private')->delete($user->face_photo_path);
+        }
+
+        $path = $request->file('foto')->storeAs(
+            'faces',
+            $user->id . '.jpg',
+            'private'
+        );
+
+        $user->update(['face_photo_path' => $path]);
+
+        return back()->with('success', 'Foto facial actualizada.');
+    }
+
     public function destroy(int $id)
     {
-        User::findOrFail($id)->delete();
+        $user = User::findOrFail($id);
+
+        if ($user->face_photo_path && Storage::disk('private')->exists($user->face_photo_path)) {
+            Storage::disk('private')->delete($user->face_photo_path);
+        }
+
+        $user->delete();
         return back()->with('success', 'Usuario eliminado.');
     }
 }
