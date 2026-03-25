@@ -10,5 +10,19 @@ services:
     volumes:
       - deepface_models:/root/.deepface
 
+  db:
+      image: postgres:15-alpine
+      container_name: enso_postgres
+      restart: unless-stopped
+      environment:
+        POSTGRES_DB: ${DB_DATABASE:-enso_db}
+        POSTGRES_USER: ${DB_USERNAME:-enso_user}
+        POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+      ports:
+        - "5433:5432"
+      volumes:
+        - enso_db_data:/var/lib/postgresql/data
+
 volumes:
   deepface_models:
+  enso_db_data:
