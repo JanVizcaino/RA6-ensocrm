@@ -43,13 +43,15 @@ class FaceController extends Controller
         try {
             $fotoRegistro = Storage::get($user->face_photo_path);
             $fotoWebcam   = file_get_contents($request->file('foto_webcam')->getRealPath());
+            
+            // Detectamos las extensiones reales
+            $extWebcam = $request->file('foto_webcam')->extension();
+            $extRegistro = pathinfo($user->face_photo_path, PATHINFO_EXTENSION);
 
             $response = Http::timeout(60)
-                ->attach('img1', $fotoRegistro, 'registro.jpg')
-                ->attach('img2', $fotoWebcam,   'webcam.jpg')
+                ->attach('img1', $fotoRegistro, 'registro.' . $extRegistro)
+                ->attach('img2', $fotoWebcam,   'webcam.' . $extWebcam) 
                 ->post($url);
-
-            $resultado = $response->json();
 
             if ($response->failed()) {
                 return response()->json([
@@ -99,10 +101,10 @@ class FaceController extends Controller
             Storage::delete($user->face_photo_path);
         }
 
-        // Guardar nueva foto
+       $extension = $request->file('foto')->extension();
         $path = $request->file('foto')->storeAs(
             'faces',
-            $user->id . '.jpg',
+            $user->id . '.' . $extension,
             'private'
         );
 
