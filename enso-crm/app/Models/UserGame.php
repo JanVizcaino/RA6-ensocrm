@@ -7,10 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class UserGame extends Model
 {
-    public $timestamps = false;
-    public $incrementing = false;
+    // ELIMINADAS: public $timestamps, public $incrementing y protected $primaryKey
+    // Laravel ahora asumirá correctamente que la clave primaria es 'id'
 
-    protected $primaryKey = ['user_id', 'game_id'];
+    protected $table = 'enso_users_games';
 
     protected $fillable = [
         'user_id',
@@ -29,8 +29,14 @@ class UserGame extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function game(): BelongsTo
+    public function game()
     {
-        return $this->belongsTo(Game::class);
+        return $this->belongsTo(Game::class, 'game_id');
+    }
+
+    public function emotions()
+    {
+        // Ahora esto funcionará porque la primary key del modelo volverá a ser 'id'
+        return $this->hasMany(GameEmotion::class, 'user_game_id');
     }
 }

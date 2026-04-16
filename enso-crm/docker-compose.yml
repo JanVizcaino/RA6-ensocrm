@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   facial-api:
     build: ./microservicio_facial
@@ -11,17 +9,40 @@ services:
       - deepface_models:/root/.deepface
 
   db:
-      image: postgres:15-alpine
-      container_name: enso_postgres
-      restart: unless-stopped
-      environment:
-        POSTGRES_DB: ${DB_DATABASE:-enso_db}
-        POSTGRES_USER: ${DB_USERNAME:-enso_user}
-        POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
-      ports:
-        - "5433:5432"
+    image: postgres:15-alpine
+    container_name: enso_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-enso_db}
+      POSTGRES_USER: ${DB_USERNAME:-enso_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    ports:
+      - "5433:5432"
+    volumes:
+      - enso_db_data:/var/lib/postgresql/data
+
+  reverb:
+      build:
+        context: .
+        dockerfile: docker/reverb/Dockerfile
+      container_name: enso_reverb
+      working_dir: /var/www/html
+      command: php artisan reverb:start --host=0.0.0.0 --port=8080
       volumes:
-        - enso_db_data:/var/lib/postgresql/data
+        - .:/var/www/html
+      ports:
+        - "8765:8080"
+      restart: unless-stopped
+      depends_on:
+        - db
+      env_file:
+        - .env
+      environment:
+        DB_HOST: db
+        DB_PORT: 5432
+        CACHE_STORE: file
+        REVERB_HOST: localhost
+        REVERB_PORT: 8080
 
 volumes:
   deepface_models:

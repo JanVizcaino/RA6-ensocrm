@@ -20,32 +20,49 @@ class GameController extends Controller
         return response()->json($games);
     }
 
-    public function finish(Request $request, int $id): JsonResponse
+    // Crea el registro al inicio — devuelve user_game_id para las emociones
+    public function start(Request $request, int $id): JsonResponse
     {
-        $validated = $request->validate([
-            'errors'   => 'nullable|integer|min:0',
-            'duration' => 'nullable|integer|min:0',
-        ]);
-
         $game = Game::findOrFail($id);
 
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        DB::table('enso_users_games')->insert([
+        $userGameId = DB::table('enso_users_games')->insertGetId([
             'user_id'    => $user->id,
             'game_id'    => $game->id,
-            'num_errors' => $validated['errors'] ?? null,
-            'duration'   => $validated['duration'] ?? null,
             'played_at'  => now(),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
         return response()->json([
-            'success'  => true,
-            'message'  => 'Partida guardada.',
-            'result'   => [
+            'success'      => true,
+            'user_game_id' => $userGameId,
+        ]);
+    }
+
+    // Actualiza el registro existente con el resultado final
+    public function finish(Request $request, int $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'user_game_id' => 'required|integer|exists:enso_users_games,id',
+            'errors'       => 'nullable|integer|min:0',
+            'duration'     => 'nullable|integer|min:0',
+        ]);
+
+        DB::table('enso_users_games')
+            ->where('id', $validated['user_game_id'])
+            ->update([
+                'num_errors' => $validated['errors'] ?? null,
+                'duration'   => $validated['duration'] ?? null,
+                'updated_at' => now(),
+            ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Partida guardada.',
+            'result'  => [
                 'errors'   => $validated['errors'] ?? 0,
                 'duration' => $validated['duration'] ?? null,
             ],

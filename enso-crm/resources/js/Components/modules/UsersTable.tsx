@@ -1,8 +1,15 @@
-import React from 'react';
-import { Pencil, Trash2, Camera, CheckCircle } from 'lucide-react';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../ui/Table';
-import { Button } from '../ui/Button';
-import { Badge } from '../ui/Badge';
+import React from "react";
+import { Pencil, Trash2, Camera, CheckCircle } from "lucide-react";
+import {
+    Table,
+    TableHeader,
+    TableBody,
+    TableRow,
+    TableHead,
+    TableCell,
+} from "../ui/Table";
+import { Button } from "../ui/Button";
+import { Badge } from "../ui/Badge";
 
 export interface UserData {
     id: number;
@@ -11,7 +18,18 @@ export interface UserData {
     role: string;
     has_face_photo?: boolean;
     lastAccess?: string;
-    status?: 'active' | 'inactive';
+    status?: "active" | "inactive";
+    history?: UserHistory[];
+}
+
+export interface UserHistory {
+    id: number;
+    game_id: number;
+    game_name: string;
+    num_errors: number;
+    duration: number;
+    played_at: Date;
+    primary_emotion: string;
 }
 
 interface UsersTableProps {
@@ -35,8 +53,12 @@ export const UsersTable: React.FC<UsersTableProps> = ({
         <Table>
             <TableHeader>
                 <TableRow>
-                    <TableHead sortable className="w-24">ID</TableHead>
-                    <TableHead sortable className="w-48">Usuario</TableHead>
+                    <TableHead sortable className="w-24">
+                        ID
+                    </TableHead>
+                    <TableHead sortable className="w-48">
+                        Usuario
+                    </TableHead>
                     <TableHead>Rol</TableHead>
                     <TableHead>Contacto</TableHead>
                     <TableHead sortable>Último Acceso</TableHead>
@@ -55,14 +77,22 @@ export const UsersTable: React.FC<UsersTableProps> = ({
 
                         <TableCell>
                             <div className="flex flex-col justify-start items-start gap-0.5">
-                                <span className="font-bold text-text-main text-sm">{user.name}</span>
+                                <span className="font-bold text-text-main text-sm">
+                                    {user.name}
+                                </span>
                             </div>
                         </TableCell>
 
                         <TableCell>
                             <Badge
-                                label={user.role || 'Sin Rol'}
-                                variant={user.role === 'admin' ? 'red' : user.role === 'gestor' ? 'yellow' : 'blue'}
+                                label={user.role || "Sin Rol"}
+                                variant={
+                                    user.role === "admin"
+                                        ? "red"
+                                        : user.role === "gestor"
+                                          ? "yellow"
+                                          : "blue"
+                                }
                             />
                         </TableCell>
 
@@ -71,22 +101,34 @@ export const UsersTable: React.FC<UsersTableProps> = ({
                         </TableCell>
 
                         <TableCell className="text-text-body text-sm">
-                            {user.lastAccess || 'Nunca'}
+                            {user.lastAccess || "Nunca"}
                         </TableCell>
 
                         <TableCell>
                             <Badge
-                                label={user.status === 'active' ? 'Activo' : 'Inactivo'}
-                                variant={user.status === 'active' ? 'green' : 'gray'}
+                                label={
+                                    user.status === "active"
+                                        ? "Activo"
+                                        : "Inactivo"
+                                }
+                                variant={
+                                    user.status === "active" ? "green" : "gray"
+                                }
                                 withDot
                             />
                         </TableCell>
 
                         <TableCell>
                             {user.has_face_photo ? (
-                                <CheckCircle size={16} className="text-state-success" />
+                                <CheckCircle
+                                    size={16}
+                                    className="text-state-success"
+                                />
                             ) : (
-                                <Camera size={16} className="text-text-muted opacity-40" />
+                                <Camera
+                                    size={16}
+                                    className="text-text-muted opacity-40"
+                                />
                             )}
                         </TableCell>
 
@@ -95,12 +137,16 @@ export const UsersTable: React.FC<UsersTableProps> = ({
                                 {deletingUserId === user.id ? (
                                     <>
                                         <button
-                                            onClick={() => onDeleteConfirm?.(user)}
+                                            onClick={() =>
+                                                onDeleteConfirm?.(user)
+                                            }
                                             className="text-xs text-state-error font-semibold hover:underline"
                                         >
                                             Confirmar
                                         </button>
-                                        <span className="text-text-muted text-xs">·</span>
+                                        <span className="text-text-muted text-xs">
+                                            ·
+                                        </span>
                                         <button
                                             onClick={onDeleteCancel}
                                             className="text-xs text-text-muted hover:underline"
@@ -110,8 +156,18 @@ export const UsersTable: React.FC<UsersTableProps> = ({
                                     </>
                                 ) : (
                                     <>
-                                        <Button variant="icon-only" icon={<Pencil size={16} />} aria-label="Editar Usuario" onClick={() => onEdit?.(user)} />
-                                        <Button variant="icon-only" icon={<Trash2 size={16} />} aria-label="Eliminar Usuario" onClick={() => onDelete?.(user)} />
+                                        <Button
+                                            variant="icon-only"
+                                            icon={<Pencil size={16} />}
+                                            aria-label="Editar Usuario"
+                                            onClick={() => onEdit?.(user)}
+                                        />
+                                        <Button
+                                            variant="icon-only"
+                                            icon={<Trash2 size={16} />}
+                                            aria-label="Eliminar Usuario"
+                                            onClick={() => onDelete?.(user)}
+                                        />
                                     </>
                                 )}
                             </div>

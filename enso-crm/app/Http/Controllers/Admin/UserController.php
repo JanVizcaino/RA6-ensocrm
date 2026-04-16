@@ -13,23 +13,48 @@ class UserController extends Controller
 {
     public function index()
     {
-        $users = User::orderBy('name')->get()->map(function ($user) {
-            return [
-                'id'              => $user->id,
-                'name'            => $user->name,
-                'email'           => $user->email,
-                'role'            => $user->role,
-                'has_face_photo'  => !empty($user->face_photo_path),
-                'lastAccess'      => $user->updated_at?->diffForHumans() ?? 'Desconocido',
-                'status'          => 'active',
-            ];
-        });
+        // Precargamos el juego y las emociones del historial
+        $users = User::with(['history.game', 'history.emotions'])
+            ->orderBy('name')
+            ->get()
+            ->map(function ($user) {
+                return [
+                    'id'              => $user->id,
+                    'name'            => $user->name,
+                    'email'           => $user->email,
+                    'role'            => $user->role,
+                    'has_face_photo'  => !empty($user->face_photo_path),
+                    'lastAccess'      => $user->updated_at?->diffForHumans() ?? 'Desconocido',
+                    'status'          => 'active',
+                    'history'         => $user->history->map(function ($record) {
+
+                        // 1. Contamos cuántas veces se repite cada emoción
+                        // 2. Ordenamos de mayor a menor
+                        // 3. Obtenemos las llaves (nombres de las emociones)
+                        // 4. Nos quedamos con la primera (la más frecuente)
+                        $primaryEmotion = $record->emotions
+                            ->countBy('emotion')
+                            ->sortDesc()
+                            ->keys()
+                            ->first() ?? 'Sin datos'; // Fallback por si no hay registros
+
+                        return [
+                            'id'              => $record->id,
+                            'game_id'         => $record->game_id,
+                            'game_name'       => $record->game?->name ?? 'Juego eliminado',
+                            'num_errors'      => $record->num_errors,
+                            'duration'        => $record->duration,
+                            'played_at'       => $record->played_at,
+                            'primary_emotion' => $primaryEmotion, // <-- Se lo mandamos al front
+                        ];
+                    }),
+                ];
+            });
 
         return Inertia::render('Admin/Users', [
             'users' => $users,
         ]);
     }
-
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -65,8 +90,8 @@ class UserController extends Controller
             'email'    => $validated['email'],
             'role'     => $validated['role'],
             'password' => isset($validated['password']) && $validated['password']
-                            ? Hash::make($validated['password'])
-                            : $user->password,
+                ? Hash::make($validated['password'])
+                : $user->password,
         ]);
 
         return back()->with('success', 'Usuario actualizado correctamente.');

@@ -99,6 +99,7 @@ export default function Login() {
             try {
                 const response = await fetch('/api/facial/verify', {
                     method: 'POST',
+                    credentials: "include",
                     headers: { 'X-XSRF-TOKEN': getCsrfToken() },
                     body: formData,
                 });
@@ -118,6 +119,10 @@ export default function Login() {
                 } else {
                     setFacialMessage(result.message || 'Verificación fallida. Inténtalo de nuevo o usa tu contraseña.');
                     setCameraStatus('active');
+                }
+
+                if (!response.ok){
+                    console.error("Error del servidor:", await response.text());
                 }
             } catch {
                 setFacialMessage('Error de conexión. Usa tu contraseña.');

@@ -33,6 +33,11 @@ class User extends Authenticatable
         ];
     }
 
+    public function history()
+    {
+        return $this->hasMany(UserGame::class, 'user_id'); 
+    }
+
     public function isAdmin(): bool  { return $this->role === 'admin';  }
     public function isGestor(): bool { return $this->role === 'gestor'; }
     public function isPlayer(): bool { return $this->role === 'player'; }

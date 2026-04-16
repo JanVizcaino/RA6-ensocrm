@@ -2,28 +2,32 @@
 
 use App\Http\Controllers\Api\GameController as ApiGameController;
 use App\Http\Controllers\Api\FaceController;
+use App\Http\Controllers\Api\MessageController;
+use App\Http\Controllers\Api\EmotionController;
 use Illuminate\Support\Facades\Route;
 
-// Verificación facial — pública (no requiere auth, es el paso previo al login)
+// Verificación facial — pública
 Route::post('/facial/verify', [FaceController::class, 'verify'])
-    ->name('api.facial.verify')->middleware('web');
+    ->name('api.facial.verify')
+    ->middleware('web');
 
-// Enrolamiento — requiere estar autenticado
+// Rutas autenticadas
 Route::middleware(['auth:sanctum'])->group(function () {
+
+    // Facial
     Route::post('/facial/enroll', [FaceController::class, 'enroll'])
-        ->name('api.facial.enroll')->middleware('web');
+        ->name('api.facial.enroll')
+        ->middleware('web');
 
-    Route::post('/games/{id}/finish', [ApiGameController::class, 'finish'])
-        ->name('api.games.finish');
+    // Juegos
+    Route::get('/games',                    [ApiGameController::class, 'index'])->name('api.games.index');
+    Route::post('/games/{id}/start',        [ApiGameController::class, 'start'])->name('api.games.start');
+    Route::post('/games/{id}/finish',       [ApiGameController::class, 'finish'])->name('api.games.finish');
 
-    Route::get('/games', [ApiGameController::class, 'index'])
-        ->name('api.games.index');
-});
+    // Emociones
+    Route::post('/emotions',                [EmotionController::class, 'store'])->name('api.emotions.store');
 
-Route::middleware(['auth:sanctum'])->group(function () {
-    Route::post('/games/{id}/finish', [ApiGameController::class, 'finish'])
-        ->name('api.games.finish');
-
-    Route::get('/games', [ApiGameController::class, 'index'])
-        ->name('api.games.index');
+    // Chat
+    Route::get('/messages',                 [MessageController::class, 'index'])->name('api.messages.index');
+    Route::post('/messages',                [MessageController::class, 'store'])->name('api.messages.store');
 });

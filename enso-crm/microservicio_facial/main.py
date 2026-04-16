@@ -36,10 +36,8 @@ async def verify(
             distance_metric="cosine"
         )
 
-        # Log para debug
         print(f"Distance: {result['distance']}, Threshold: {result['threshold']}, Verified: {result['verified']}")
 
-        # Threshold más permisivo para entorno de desarrollo
         verified = result["distance"] < 0.5
 
         return {

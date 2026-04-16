@@ -6,6 +6,7 @@ use Inertia\Inertia;
 use App\Http\Controllers\Admin\GameController as AdminGameController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Player\GameController as PlayerGameController;
+use App\Http\Controllers\Api\MessageController;
 
 Route::get('/', function (Request $request) {
     if (!$request->user()) {
@@ -14,6 +15,12 @@ Route::get('/', function (Request $request) {
     return $request->user()->isPlayer()
         ? redirect()->route('player.dashboard')
         : redirect()->route('admin.dashboard');
+});
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/api-web/messages',  [MessageController::class, 'index'])->name('messages.index');
+    Route::post('/api-web/messages', [MessageController::class, 'store'])->name('messages.store');
 });
 
 // ==============================================================================

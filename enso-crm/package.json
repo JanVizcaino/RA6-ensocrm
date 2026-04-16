@@ -28,8 +28,11 @@
         "vite": "^7.0.7"
     },
     "dependencies": {
+        "@laravel/echo-react": "^2.3.3",
         "@types/three": "^0.183.1",
+        "laravel-echo": "^2.3.4",
         "lucide-react": "^0.577.0",
+        "pusher-js": "^8.5.0",
         "three": "^0.183.2",
         "uuid": "^13.0.0",
         "zod": "^4.3.6"
