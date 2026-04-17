@@ -12,6 +12,7 @@ import {
     User,
     MessageSquare,
     Send,
+    History
 } from "lucide-react";
 import { PageProps } from "../../types";
 import { Logo } from "../ui/Logo";
@@ -703,6 +704,12 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                             className="flex items-center gap-2 text-text-body hover:text-brand-primary transition-colors font-medium"
                         >
                             <Rocket className="w-4 h-4" /> Inicio
+                        </Link>
+                        <Link
+                            href="/player/history"
+                            className="flex items-center gap-2 text-text-body hover:text-brand-primary transition-colors font-medium"
+                        >
+                            <History className="w-4 h-4" /> Historial
                         </Link>
                     </nav>
                 </div>

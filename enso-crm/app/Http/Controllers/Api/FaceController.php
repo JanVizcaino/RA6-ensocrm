@@ -19,7 +19,6 @@ class FaceController extends Controller
             'foto_webcam' => 'required|image|max:10240',
         ]);
 
-        // Buscar usuario por email
         $user = User::where('email', $request->email)->first();
 
         if (!$user) {
@@ -29,7 +28,6 @@ class FaceController extends Controller
             ], 404);
         }
 
-        // Comprobar que el usuario tiene foto registrada
         if (!$user->face_photo_path || !Storage::exists($user->face_photo_path)) {
             return response()->json([
                 'verified' => false,
@@ -43,15 +41,16 @@ class FaceController extends Controller
         try {
             $fotoRegistro = Storage::get($user->face_photo_path);
             $fotoWebcam   = file_get_contents($request->file('foto_webcam')->getRealPath());
-            
-            // Detectamos las extensiones reales
+
             $extWebcam = $request->file('foto_webcam')->extension();
             $extRegistro = pathinfo($user->face_photo_path, PATHINFO_EXTENSION);
 
             $response = Http::timeout(60)
                 ->attach('img1', $fotoRegistro, 'registro.' . $extRegistro)
-                ->attach('img2', $fotoWebcam,   'webcam.' . $extWebcam) 
+                ->attach('img2', $fotoWebcam,   'webcam.' . $extWebcam)
                 ->post($url);
+
+            $resultado = $response->json(); 
 
             if ($response->failed()) {
                 return response()->json([
@@ -59,8 +58,6 @@ class FaceController extends Controller
                     'message'  => $resultado['detail'] ?? 'Error en el microservicio.',
                 ], 422);
             }
-
-            // Si verified → logueamos al usuario
             if ($resultado['verified']) {
                 Auth::login($user);
                 $request->session()->regenerate();
@@ -78,7 +75,6 @@ class FaceController extends Controller
                 'message'  => 'El rostro no coincide.',
                 'distance' => $resultado['distance'] ?? null,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'verified' => false,
@@ -93,15 +89,13 @@ class FaceController extends Controller
             'foto' => 'required|image|max:10240',
         ]);
 
-        /** @var User $user */
         $user = Auth::user();
 
-        // Borrar foto anterior si existe
         if ($user->face_photo_path && Storage::exists($user->face_photo_path)) {
             Storage::delete($user->face_photo_path);
         }
 
-       $extension = $request->file('foto')->extension();
+        $extension = $request->file('foto')->extension();
         $path = $request->file('foto')->storeAs(
             'faces',
             $user->id . '.' . $extension,

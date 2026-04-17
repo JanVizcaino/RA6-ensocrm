@@ -68,6 +68,7 @@ Route::middleware(['auth', 'role:player'])
         Route::get('/dashboard',            [PlayerGameController::class, 'index'])->name('dashboard');
         Route::get('/games/{id}/play',      [PlayerGameController::class, 'play'])->name('games.play');
         Route::post('/games/{id}/finish',   [PlayerGameController::class, 'finish'])->name('games.finish');
+        Route::get('/history', [PlayerGameController::class, 'history'])->name('history');
     });
 
 require __DIR__ . '/auth.php';
