@@ -89,6 +89,7 @@ class FaceController extends Controller
             'foto' => 'required|image|max:10240',
         ]);
 
+        /** @var \App\Models\User $user */
         $user = Auth::user();
 
         if ($user->face_photo_path && Storage::exists($user->face_photo_path)) {
