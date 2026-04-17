@@ -1,303 +1,264 @@
-# ENSO CRM
+<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
-**Autor:** Jan Vizcaíno  
-**Versión:** 1.0.0  
-**Stack:** Laravel 12 · Inertia.js · React · TypeScript · PostgreSQL
-
----
-
-## Descripción
-
-ENSO CRM es una plataforma de gestión de juegos cognitivos orientada a centros educativos. Permite a administradores y gestores publicar y administrar juegos interactivos, y a los jugadores acceder a ellos desde una interfaz gamificada. El sistema está construido sobre una arquitectura Laravel + Inertia + React, con una API REST separada para la comunicación entre el juego y el servidor.
+<p align="center">
+<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
+</p>
 
 ---
 
-## Tecnologías utilizadas
+# ENSO CRM — Plataforma de juegos cognitivos
 
-| Tecnología | Versión | Función en el sistema |
-|---|---|---|
-| Laravel | 12 | Framework backend: rutas, autenticación, ORM, middleware y lógica de negocio |
-| Inertia.js | 2.x | Puente entre Laravel y React. Elimina la necesidad de una API separada para las vistas |
-| React | 19 | Librería de interfaz de usuario. Gestiona todas las vistas del CRM |
-| TypeScript | 5.x | Tipado estático en el frontend para mayor robustez y mantenibilidad |
-| PostgreSQL | 16 | Base de datos relacional principal |
-| Tailwind CSS | 4.x | Estilos utilitarios para la interfaz |
-| Vite | 7.x | Bundler y servidor de desarrollo para los assets del frontend |
-| Laravel Sanctum | 4.x | Autenticación de la API REST mediante cookies de sesión |
-| Three.js | r183 | Renderizado 3D para el juego Wisconsin Card Sorting |
-| Ziggy | 2.x | Permite usar las rutas nombradas de Laravel directamente en React |
+ENSO CRM es una plataforma web para la gestión y análisis de juegos cognitivos, desarrollada como proyecto académico en dos módulos: **Desarrollo Web en Entorno Servidor** y **Despliegue de Aplicaciones Web**.
+
+El sistema combina un CRM completo construido con Laravel 12 con capacidades avanzadas: reconocimiento facial, detección de emociones en tiempo real, chat con WebSockets y despliegue en una Raspberry Pi 5.
 
 ---
 
-## Arquitectura del proyecto
+## Stack tecnológico
 
-El proyecto sigue una arquitectura **monolítica con separación de capas**:
-
-```
-┌─────────────────────────────────────────────────┐
-│                   Navegador                     │
-│         React + TypeScript (Inertia)            │
-└────────────────────┬────────────────────────────┘
-                     │ HTTP / Inertia / fetch
-┌────────────────────▼────────────────────────────┐
-│                  Laravel 12                     │
-│                                                 │
-│  routes/web.php   →   Vistas (Inertia)          │
-│  routes/api.php   →   JSON (Sanctum)            │
-│                                                 │
-│  Middleware: auth, role:admin|gestor|player     │
-│  Controllers: Admin/, Player/, Api/, Auth/      │
-│  Models: User, Game                             │
-└────────────────────┬────────────────────────────┘
-                     │ Eloquent ORM
-┌────────────────────▼────────────────────────────┐
-│              PostgreSQL                         │
-│  users · enso_games · enso_users_games          │
-└─────────────────────────────────────────────────┘
-```
-
-### Separación web.php / api.php
-
-Las rutas están estrictamente separadas en dos archivos:
-
-- **`routes/web.php`** — rutas que devuelven vistas Inertia (HTML). Protegidas por sesión y middleware de rol.
-- **`routes/api.php`** — rutas que devuelven JSON puro. Protegidas por Laravel Sanctum usando la cookie de sesión (`statefulApi`). El juego se comunica exclusivamente con esta capa.
-
-```
-Juego (Three.js) → postMessage → Play.tsx → fetch /api/games/{id}/finish → api.php → JSON
-```
-
----
-
-## Base de datos
-
-### Tablas principales
-
-#### `users`
-Tabla de autenticación y gestión de usuarios. Extiende la tabla base de Laravel.
-
-| Campo | Tipo | Descripción |
-|---|---|---|
-| id | bigint | Clave primaria |
-| name | varchar | Nombre del usuario |
-| email | varchar | Email único, usado para login |
-| password | varchar | Hash bcrypt |
-| role | enum | Rol del usuario: `admin`, `gestor` o `player` |
-| created_at / updated_at | timestamp | Gestión automática de Laravel |
-| deleted_at | timestamp | Soft delete |
-
-#### `enso_games`
-Catálogo de juegos del sistema.
-
-| Campo | Tipo | Descripción |
-|---|---|---|
-| id | bigint | Clave primaria |
-| name | varchar | Nombre del juego (único) |
-| description | text | Descripción del juego |
-| path | varchar | Identificador del componente React del juego |
-| is_published | boolean | Si es visible para los jugadores |
-| created_at / updated_at | timestamp | Gestión automática de Laravel |
-
-#### `enso_users_games`
-Registro de partidas jugadas. Relaciona usuarios con juegos.
-
-| Campo | Tipo | Descripción |
-|---|---|---|
-| id | bigint | Clave primaria |
-| user_id | bigint | FK → users |
-| game_id | bigint | FK → enso_games |
-| num_errors | integer | Número de errores en la partida |
-| duration | integer | Duración en segundos (opcional) |
-| result | json | Datos adicionales de resultado en formato flexible |
-| played_at | timestamp | Fecha y hora de la partida |
-
-### Relaciones Eloquent
-
-```php
-// User → juegos jugados (muchos a muchos con pivot)
-User::belongsToMany(Game::class, 'enso_users_games')
-    ->withPivot('num_errors', 'duration', 'result', 'played_at');
-
-// Game → usuarios que lo han jugado
-Game::belongsToMany(User::class, 'enso_users_games')
-    ->withPivot('num_errors', 'duration', 'result', 'played_at');
-```
-
----
-
-## Autenticación
-
-El sistema usa **Laravel Breeze** como base, adaptado a Inertia + React. No se usa MSAL ni OAuth externo — la autenticación es mediante email y contraseña.
-
-### Flujo de autenticación
-
-1. El usuario accede a `/login` o `/register`.
-2. Laravel valida las credenciales y crea la sesión.
-3. Tras el login, el sistema redirige según el rol:
-   - `admin` o `gestor` → `/admin/dashboard`
-   - `player` → `/player/dashboard`
-4. Cada petición posterior es autenticada mediante la cookie de sesión de Laravel.
-
-### Registro
-
-El registro público está disponible en `/register`. Los usuarios registrados reciben el rol `player` por defecto. Solo un administrador puede cambiar el rol de un usuario desde el panel de gestión.
-
----
-
-## Roles y permisos
-
-El sistema implementa tres roles mediante un campo `enum` en la tabla `users` y un middleware personalizado (`CheckRole`):
-
-| Rol | Acceso |
+| Capa | Tecnología |
 |---|---|
-| `admin` | Panel completo: gestión de juegos y usuarios |
-| `gestor` | Panel de juegos únicamente (sin acceso a usuarios) |
-| `player` | Zona de juego: lista y ejecución de juegos publicados |
+| Backend | Laravel 12, PHP 8.2 |
+| Frontend | React 18, TypeScript, Inertia.js |
+| Estilos | Tailwind CSS v4 |
+| Base de datos | PostgreSQL |
+| API interna | Laravel Sanctum |
+| Reconocimiento facial | FastAPI + DeepFace (VGG-Face) |
+| WebSockets | Laravel Reverb |
+| Contenedores | Docker |
+| Despliegue | Raspberry Pi 5, Ngrok |
 
-### Implementación del middleware
+---
+
+## Arquitectura general
+
+El proyecto sigue una arquitectura de servicios desacoplados. Laravel actúa como núcleo central: gestiona usuarios, sesiones, la API y la lógica de negocio. Las responsabilidades especializadas (reconocimiento facial, juegos) se delegan a servicios externos que se comunican con Laravel por HTTP.
+
+```
+Navegador  <-->  Laravel (CRM + API)  <-->  Microservicio Python (FastAPI)
+                       |
+                 PostgreSQL
+                       |
+              Laravel Reverb (WebSockets)
+```
+
+El navegador nunca se comunica directamente con el microservicio Python. Toda decisión de acceso y seguridad la toma Laravel.
+
+---
+
+## Sistema de roles
+
+La plataforma implementa tres roles con acceso diferenciado:
+
+- **Admin**: panel de gestión completo, CRUD de usuarios y juegos, acceso al historial de todos los jugadores.
+- **Gestor**: puede publicar y despublicar juegos, revisar estadísticas.
+- **Player**: accede al catálogo de juegos publicados, juega y consulta su propio historial emocional.
+
+El control de acceso se aplica mediante middleware `CheckRole` en todas las rutas protegidas. Las rutas web (vistas Inertia) y las rutas API (JSON + Sanctum) están separadas en `web.php` y `api.php` respectivamente.
+
+---
+
+## Reconocimiento facial con microservicio Python
+
+El reconocimiento facial se delega completamente a un microservicio independiente escrito en Python con **FastAPI** y **DeepFace**. Laravel no procesa imágenes ni ejecuta modelos de visión artificial: coordina, valida y decide.
+
+### Flujo de verificación
+
+1. El navegador captura un frame de la webcam y lo envía a Laravel (`POST /api/facial/verify`).
+2. Laravel recupera la foto registrada del usuario desde el disco privado.
+3. Laravel envía ambas imágenes al microservicio vía HTTP multipart.
+4. El microservicio compara los rostros con el modelo **VGG-Face** y devuelve `verified`, `distance` y el umbral aplicado.
+5. Laravel interpreta la respuesta, inicia sesión si procede y redirige al dashboard correspondiente.
+
+### Configuración del microservicio
+
+El microservicio corre en Docker. El umbral de distancia coseno está configurado en `0.5` (más permisivo que el valor por defecto de DeepFace de `0.68`) para mejorar la tasa de aceptación en condiciones de iluminación variable.
+
+Los pesos del modelo (~580 MB, VGG-Face) se persisten en un volumen Docker llamado `deepface_models` para evitar descargas en cada reinicio del contenedor.
+
+```yaml
+# docker-compose.yml (extracto)
+volumes:
+  deepface_models:
+
+services:
+  facial:
+    image: facial-service
+    volumes:
+      - deepface_models:/root/.deepface/weights
+    ports:
+      - "8181:8181"
+```
+
+La red de Docker usa `bip: 10.10.0.1/16` para evitar colisiones con la red local.
+
+### Registro de foto (enroll)
+
+Los usuarios pueden registrar o actualizar su foto facial desde su perfil. La foto se almacena en el disco `private` de Laravel (`storage/app/private/faces/{id}.jpg`) y nunca es accesible públicamente.
+
+---
+
+## Detección de emociones durante el juego
+
+Mientras el jugador juega, la plataforma detecta sus expresiones faciales en tiempo real directamente en el navegador usando **face-api.js**. Esta funcionalidad no identifica personas: observa la interacción para poder analizar cómo se usa cada juego.
+
+### Dónde ocurre la detección
+
+La detección ocurre completamente en el cliente. El navegador accede a la webcam, analiza frames localmente y obtiene probabilidades de expresiones básicas (`neutral`, `happy`, `sad`, `angry`, `surprised`, `fearful`, `disgusted`). Laravel no recibe imágenes ni vídeo, solo datos ya interpretados.
+
+### Frecuencia de muestreo
+
+No se procesa a 30 fps. La detección se ejecuta a intervalos razonables (cada pocos segundos) para no generar ruido ni sobrecargar la API.
+
+### Persistencia en base de datos
+
+Al finalizar la partida, las emociones detectadas se guardan en la tabla `game_emotions` asociadas a la sesión de juego (`user_game_id`). Cada registro almacena la emoción detectada y el timestamp.
+
+El modelo `UserGame` expone la relación:
 
 ```php
-// app/Http/Middleware/CheckRole.php
-public function handle(Request $request, Closure $next, string ...$roles): mixed
+public function emotions(): HasMany
 {
-    if (!$request->user() || !in_array($request->user()->role, $roles)) {
-        abort(403, 'No autorizado.');
-    }
-    return $next($request);
+    return $this->hasMany(GameEmotion::class, 'user_game_id');
 }
 ```
 
-El middleware acepta uno o varios roles, permitiendo construcciones como `role:admin,gestor` en las rutas.
+---
+
+## Historial de partidas
+
+Los jugadores pueden consultar su historial completo en `/history`. Para cada partida se muestra:
+
+- Nombre del juego
+- Fecha y hora de la sesión
+- Duración en minutos y segundos
+- Número de errores
+- **Emoción predominante**: calculada en el backend contando la frecuencia de cada emoción registrada durante la sesión y quedándose con la más repetida.
+
+```php
+$primaryEmotion = $entry->emotions
+    ->countBy('emotion')
+    ->sortDesc()
+    ->keys()
+    ->first() ?? 'Sin datos';
+```
+
+El historial se obtiene filtrando por el usuario autenticado, con eager loading de juego y emociones para evitar el problema N+1:
+
+```php
+UserGame::where('user_id', Auth::user()->id)
+    ->orderBy('played_at', 'desc')
+    ->with(['game', 'emotions'])
+    ->get();
+```
 
 ---
 
-## Gestión de juegos
+## Chat en tiempo real con WebSockets
 
-El modelo `Game` representa un juego en el catálogo. Los campos principales son:
+La plataforma incluye un chat contextualizado implementado con **Laravel Reverb**, el servidor de WebSockets nativo de Laravel. A diferencia de las peticiones HTTP convencionales, Reverb mantiene una conexión TCP bidireccional abierta entre cliente y servidor, logrando que los mensajes aparezcan instantáneamente sin recargar la página.
 
-- `name` — título del juego
-- `description` — descripción
-- `path` — identificador del componente React que implementa el juego
-- `is_published` — controla la visibilidad para los jugadores
+El frontend usa **Inertia.js con React**, por lo que no se usa Livewire (ambas tecnologías resuelven el mismo problema con enfoques incompatibles). La integración con Reverb se hace a través del sistema de eventos de Laravel y Laravel Echo en el cliente.
 
-El panel de administración permite realizar el CRUD completo: crear, editar, publicar/despublicar y eliminar juegos. El acceso a estas rutas está protegido por `role:admin,gestor`, impidiendo que un jugador acceda aunque conozca la URL.
+### Configuración necesaria en `.env`
 
----
-
-## Experiencia del jugador y comunicación con la API
-
-El jugador ve únicamente los juegos con `is_published = true`, filtrados por Laravel antes de llegar al frontend.
-
-Al iniciar un juego, el componente React ocupa toda la pantalla. Cuando la partida termina, el juego emite un evento `postMessage`:
-
-```javascript
-window.parent.postMessage({
-    type: 'GAME_OVER',
-    payload: { errors: 13, duration: null }
-}, '*');
+```env
+BROADCAST_CONNECTION=reverb
+QUEUE_CONNECTION=database
 ```
 
-La página `Play.tsx` escucha este evento y realiza una llamada `fetch` a la API:
+Los eventos del chat se procesan mediante jobs en segundo plano (cola de base de datos) para no bloquear las peticiones HTTP y mantener la aplicación responsiva.
 
-```
-POST /api/games/{id}/finish
-Authorization: cookie de sesión (Sanctum statefulApi)
-Content-Type: application/json
-
-{ "errors": 13, "duration": null }
-```
-
-Laravel valida la petición, guarda el resultado en `enso_users_games` y devuelve un JSON de confirmación. El frontend redirige al dashboard y muestra un modal con los resultados.
-
----
-
-## Instalación y puesta en marcha
-
-### Requisitos
-
-- PHP 8.2+
-- Composer
-- Node.js 20+
-- PostgreSQL 14+
-
-### Pasos
+### Instalación
 
 ```bash
-# 1. Clonar el repositorio
-git clone <url-del-repositorio>
-cd enso-crm
+php artisan install:broadcasting
+php artisan migrate
+php artisan queue:work
+php artisan reverb:start
+```
 
-# 2. Instalar dependencias PHP
+---
+
+## Despliegue en Raspberry Pi 5
+
+La aplicación completa está desplegada en una **Raspberry Pi 5** con Docker. El microservicio de reconocimiento facial corre como contenedor junto a Laravel, comunicándose por red interna.
+
+### HTTPS con Ngrok
+
+La webcam del navegador requiere un contexto seguro (HTTPS) para funcionar. En producción se usa **Ngrok** para exponer la Raspberry Pi con un túnel HTTPS público, evitando la necesidad de un certificado SSL propio y permitiendo el acceso desde cualquier dispositivo de la red.
+
+Ngrok se arranca en un proceso separado para que no interfiera con la sesión SSH:
+
+```bash
+nohup ngrok http 8000 &
+```
+
+La URL pública de Ngrok se configura en `APP_URL` y en los dominios stateful de Sanctum para que las cookies de sesión funcionen correctamente.
+
+### Consideraciones de red
+
+El `docker-compose.yml` usa `bip: 10.10.0.1/16` para aislar la red de Docker de la red local de la Raspberry y evitar que las rutas colisionen, lo que podría cortar la conexión SSH durante el despliegue.
+
+---
+
+## Puesta en marcha local
+
+```bash
+# Dependencias PHP
 composer install
 
-# 3. Instalar dependencias JavaScript
-npm install
+# Dependencias JS (requiere --legacy-peer-deps por conflicto @types/node vs Vite 7)
+npm install --legacy-peer-deps
 
-# 4. Configurar el entorno
+# Variables de entorno
 cp .env.example .env
 php artisan key:generate
 
-# 5. Configurar la base de datos en .env
-DB_CONNECTION=pgsql
-DB_HOST=127.0.0.1
-DB_PORT=5432
-DB_DATABASE=enso_crm
-DB_USERNAME=tu_usuario
-DB_PASSWORD=tu_contraseña
+# Base de datos
+php artisan migrate
 
-# 6. Ejecutar migraciones y datos de prueba
-php artisan migrate --seed
-
-# 7. Iniciar el servidor de desarrollo
+# Arrancar todos los servicios
 php artisan serve
-
-# 8. En otra terminal, compilar el frontend
 npm run dev
+php artisan reverb:start
+php artisan queue:work
+
+# Microservicio facial (Docker)
+docker-compose up -d
 ```
 
-### Usuarios de prueba (seeder)
+### Variable de entorno del microservicio
 
-| Email | Contraseña | Rol |
-|---|---|---|
-| admin@enso.com | password123 | admin |
-| gestor@enso.com | password123 | gestor |
-| jugador@enso.com | password123 | player |
+```env
+FACIAL_SERVICE_URL=http://127.0.0.1:8181/verify
+```
 
 ---
 
-## Estructura de carpetas relevante
+## About Laravel
 
-```
-app/
-├── Http/
-│   ├── Controllers/
-│   │   ├── Admin/         # GameController, UserController
-│   │   ├── Api/           # GameController (devuelve JSON)
-│   │   ├── Auth/          # Login, Register
-│   │   └── Player/        # GameController (vistas del jugador)
-│   └── Middleware/
-│       ├── CheckRole.php
-│       └── HandleInertiaRequests.php
-├── Models/
-│   ├── User.php
-│   └── Game.php
-routes/
-├── web.php                # Rutas de vistas (Inertia)
-├── api.php                # Rutas de API (JSON, Sanctum)
-└── auth.php               # Login, logout, registro
-resources/js/
-├── Components/
-│   ├── games/             # CardSortingGame3D.tsx
-│   ├── layout/            # Header, Sidebar
-│   ├── shared/            # Componentes reutilizables
-│   └── ui/                # Componentes base
-├── Layouts/
-│   ├── MainLayout.tsx     # Layout con sidebar (admin/gestor)
-│   └── GamifiedLayout.tsx # Layout sin sidebar (player)
-├── Pages/
-│   ├── Admin/             # Games, Users, Dashboard, Play
-│   ├── Auth/              # Login, Register
-│   └── Player/            # Index, Play
-└── types/
-    └── index.ts           # Tipos globales TypeScript
-```
+Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+
+- [Simple, fast routing engine](https://laravel.com/docs/routing).
+- [Powerful dependency injection container](https://laravel.com/docs/container).
+- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
+- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
+- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
+- [Robust background job processing](https://laravel.com/docs/queues).
+- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+
+Laravel is accessible, powerful, and provides tools required for large, robust applications.
+
+## Learning Laravel
+
+Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+
+If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+
+## License
+
+The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
