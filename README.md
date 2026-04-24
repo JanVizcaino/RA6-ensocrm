@@ -1,12 +1,3 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
-
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
-
 ---
 
 # ENSO CRM — Plataforma de juegos cognitivos
@@ -29,6 +20,8 @@ El sistema combina un CRM completo construido con Laravel 12 con capacidades ava
 | Reconocimiento facial | FastAPI + DeepFace (VGG-Face) |
 | WebSockets | Laravel Reverb |
 | Contenedores | Docker |
+| Mensajería | RabbitMQ 3 |
+| Asistencia IA | Claude Code + MCP (GitHub, RabbitMQ) |
 | Despliegue | Raspberry Pi 5, Ngrok |
 
 ---
@@ -43,9 +36,19 @@ Navegador  <-->  Laravel (CRM + API)  <-->  Microservicio Python (FastAPI)
                  PostgreSQL
                        |
               Laravel Reverb (WebSockets)
+                       |
+                   RabbitMQ  <-->  workers / servicios externos
 ```
 
 El navegador nunca se comunica directamente con el microservicio Python. Toda decisión de acceso y seguridad la toma Laravel.
+
+Una capa adicional de asistencia inteligente conecta los tres elementos:
+
+```
+GitHub  -->  GitHub MCP  -->  Claude Code  -->  Laravel / scripts  -->  RabbitMQ  -->  workers
+```
+
+MCP (Model Context Protocol) no es una librería de Laravel ni parte del repositorio: es el protocolo que permite que Claude Code opere sobre el repositorio de forma controlada (leer issues, revisar PRs, sugerir cambios) sin acceso arbitrario.
 
 ---
 
@@ -183,6 +186,106 @@ php artisan reverb:start
 
 ---
 
+## Capa de eventos con RabbitMQ
+
+RabbitMQ actúa como broker de mensajería asíncrona: cuando ocurre algo relevante en el sistema (apertura de una sesión de juego, finalización de una validación, publicación de un juego), Laravel publica un evento en una cola en lugar de procesarlo todo de forma síncrona en la misma petición HTTP.
+
+Esto desacopla los procesos pesados del flujo principal y se acerca a la arquitectura de entornos reales.
+
+### Eventos publicados desde Laravel
+
+```json
+{
+  "event": "game_session.started",
+  "user_id": 42,
+  "game_id": 7,
+  "timestamp": "2025-04-24T10:00:00Z"
+}
+```
+
+Ese evento puede activar un worker que registre métricas, envíe una notificación o lance una tarea de análisis sin bloquear al jugador.
+
+### Acceso al panel de gestión
+
+Con el contenedor en marcha, el panel de administración de RabbitMQ está disponible en `http://localhost:15672`. Las credenciales por defecto se configuran mediante variables de entorno:
+
+```env
+RABBITMQ_USER=guest
+RABBITMQ_PASSWORD=guest
+```
+
+> **Importante**: cambia las credenciales antes de desplegar en producción.
+
+### Por qué no se usa `QUEUE_CONNECTION=rabbitmq` directamente
+
+Laravel usa `QUEUE_CONNECTION=database` para sus jobs de broadcasting (Reverb). RabbitMQ se incorpora como capa de eventos de dominio desacoplada, no como sustituto del sistema de colas interno de Laravel. Ambos coexisten con responsabilidades distintas.
+
+---
+
+## Asistencia inteligente con MCP
+
+MCP (Model Context Protocol) es un protocolo estándar que permite que herramientas de IA como Claude Code se conecten a sistemas externos de forma controlada. En este proyecto se conecta con GitHub y con RabbitMQ.
+
+El desarrollador no le pide a la IA explicaciones genéricas: le pide acciones reales sobre el repositorio:
+
+> *"Revisa esta PR y dime si falta validación en la API de sesiones."*
+> *"Crea una issue para separar web.php y api.php con un checklist de terminado."*
+> *"Comprueba si la cola de eventos está recibiendo mensajes."*
+
+### Configuración del servidor MCP de GitHub
+
+La configuración se declara en `.claude/settings.json` en la raíz del proyecto. Claude Code la carga automáticamente al abrir el directorio.
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "-e", "GITHUB_TOOLSETS=repos,issues,pull_requests",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "YOUR_GITHUB_TOKEN_HERE"
+      }
+    }
+  }
+}
+```
+
+Claude no tiene acceso a GitHub por defecto: se le conecta explícitamente un servidor MCP que le da acceso solo a las operaciones declaradas en `GITHUB_TOOLSETS`. En este proyecto se limita a `repos`, `issues` y `pull_requests` para no dar más permisos de los necesarios.
+
+### Token de GitHub
+
+Genera un Personal Access Token (PAT) en GitHub con permisos mínimos: `repo` (lectura), `issues` y `pull_requests`. Expórtalo como variable de entorno o sustitúyelo directamente en la configuración (no lo commitees):
+
+```bash
+export GITHUB_PERSONAL_ACCESS_TOKEN=ghp_xxxxxxxxxxxxxxxx
+```
+
+### Configuración del servidor MCP de RabbitMQ
+
+```json
+{
+  "mcpServers": {
+    "rabbitmq": {
+      "command": "uvx",
+      "args": ["amq-mcp-server-rabbitmq@latest", "--allow-mutative-tools"]
+    }
+  }
+}
+```
+
+Requiere `uv` instalado (`pip install uv`). Con esto, Claude Code puede listar colas, comprobar exchanges y verificar si una cola está recibiendo mensajes, sin necesidad de abrir el panel web.
+
+### Por qué esta configuración y no otra
+
+El servidor oficial de GitHub (`ghcr.io/github/github-mcp-server`) es la opción más sólida: está mantenido por GitHub, tiene imagen pública de Docker y permite limitar el alcance con `GITHUB_TOOLSETS`. Para RabbitMQ no existe un servidor oficial único; `amq-mcp-server-rabbitmq` (Amazon MQ) tiene la documentación más completa y la release más reciente.
+
+---
+
 ## Despliegue en Raspberry Pi 5
 
 La aplicación completa está desplegada en una **Raspberry Pi 5** con Docker. El microservicio de reconocimiento facial corre como contenedor junto a Laravel, comunicándose por red interna.
@@ -227,38 +330,40 @@ npm run dev
 php artisan reverb:start
 php artisan queue:work
 
-# Microservicio facial (Docker)
+# Contenedores Docker (facial-api, PostgreSQL, RabbitMQ, Reverb)
 docker-compose up -d
 ```
 
-### Variable de entorno del microservicio
+### Variables de entorno del microservicio y RabbitMQ
 
 ```env
 FACIAL_SERVICE_URL=http://127.0.0.1:8181/verify
+RABBITMQ_USER=guest
+RABBITMQ_PASSWORD=guest
 ```
+
+### Panel de gestión de RabbitMQ
+
+Una vez levantado Docker, el panel web está en `http://localhost:15672` (usuario/contraseña según `.env`).
 
 ---
 
-## About Laravel
+## Flujo completo con MCP activo
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Con Claude Code abierto en el proyecto y el MCP configurado, el flujo de trabajo queda así:
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+1. El desarrollador abre una rama (`git checkout -b feature/nueva-funcionalidad`)
+2. Solicita a Claude Code que revise la PR antes de mergearla
+3. Claude lee el diff via GitHub MCP y detecta si falta validación o documentación
+4. Al abrirse la PR en GitHub, Laravel puede publicar un evento en RabbitMQ para notificar al equipo o lanzar pruebas automatizadas
+5. Claude puede consultar el estado de las colas via el MCP de RabbitMQ
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
-
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```
+PR en GitHub  -->  GitHub MCP  -->  Claude Code  -->  revisión + sugerencias
+                                                            |
+                                              Laravel publica evento
+                                                            |
+                                                       RabbitMQ
+                                                            |
+                                                   worker / notificación
+```

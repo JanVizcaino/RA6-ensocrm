@@ -10,40 +10,55 @@ services:
 
   db:
     image: postgres:15-alpine
-    container_name: enso_postgres
+    container_name: enso_r_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DB_DATABASE:-enso_db}
-      POSTGRES_USER: ${DB_USERNAME:-enso_user}
+      POSTGRES_DB: ${DB_DATABASE:-enso_r_db}
+      POSTGRES_USER: ${DB_USERNAME:-enso_r_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
     ports:
       - "5433:5432"
     volumes:
-      - enso_db_data:/var/lib/postgresql/data
+      - enso_r_db_data:/var/lib/postgresql/data
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: enso_r_rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
 
   reverb:
-      build:
-        context: .
-        dockerfile: docker/reverb/Dockerfile
-      container_name: enso_reverb
-      working_dir: /var/www/html
-      command: php artisan reverb:start --host=0.0.0.0 --port=8080
-      volumes:
-        - .:/var/www/html
-      ports:
-        - "8765:8080"
-      restart: unless-stopped
-      depends_on:
-        - db
-      env_file:
-        - .env
-      environment:
-        DB_HOST: db
-        DB_PORT: 5432
-        CACHE_STORE: file
-        REVERB_HOST: localhost
-        REVERB_PORT: 8080
+    build:
+      context: .
+      dockerfile: docker/reverb/Dockerfile
+    container_name: enso_r_reverb
+    working_dir: /var/www/html
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    volumes:
+      - .:/var/www/html
+    ports:
+      - "8765:8080"
+    restart: unless-stopped
+    depends_on:
+      - db
+      - rabbitmq
+    env_file:
+      - .env
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      CACHE_STORE: file
+      REVERB_HOST: localhost
+      REVERB_PORT: 8080
 
 volumes:
   deepface_models:
-  enso_db_data:
+  enso_r_db_data:
+  rabbitmq_data:
