@@ -1,0 +1,30 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "-e",
+        "GITHUB_TOOLSETS=repos,issues,pull_requests",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      }
+    },
+    "rabbitmq": {
+      "command": "uvx",
+      "args": [
+        "amq-mcp-server-rabbitmq@latest",
+        "--allow-mutative-tools"
+      ],
+      "env": {
+        "RABBITMQ_URL": "amqp://guest:guest@localhost:5672/"
+      }
+    }
+  }
+}

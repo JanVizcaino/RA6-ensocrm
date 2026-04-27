@@ -367,3 +367,318 @@ PR en GitHub  -->  GitHub MCP  -->  Claude Code  -->  revisión + sugerencias
                                                             |
                                                    worker / notificación
 ```
+
+---
+
+## Guía completa: RabbitMQ y MCP explicados desde cero
+
+Esta sección explica en profundidad qué son RabbitMQ y MCP, para qué sirven en este proyecto, cómo están integrados y cómo probar que funcionan correctamente. Está pensada para entender el "por qué" detrás de cada decisión técnica.
+
+---
+
+### ¿Qué es RabbitMQ y por qué existe?
+
+RabbitMQ es un **broker de mensajería**: un intermediario que recibe mensajes de un productor y los entrega a uno o varios consumidores. La analogía más clara es una oficina de correos: el remitente deposita una carta, la oficina la guarda, y el destinatario la recoge cuando puede. El remitente no espera a que el destinatario esté disponible.
+
+Sin RabbitMQ (arquitectura síncrona):
+```
+Usuario hace clic → Laravel procesa TODO → responde al usuario
+                    (puede tardar segundos o fallar)
+```
+
+Con RabbitMQ (arquitectura asíncrona):
+```
+Usuario hace clic → Laravel publica evento → responde al usuario (inmediato)
+                                   ↓
+                             RabbitMQ guarda el mensaje
+                                   ↓
+                    Worker lo procesa en segundo plano (cuando puede)
+```
+
+El beneficio es que el usuario recibe una respuesta rápida y el trabajo pesado (enviar un email, calcular estadísticas, notificar a otros servicios) ocurre después, sin bloquear la experiencia.
+
+---
+
+### Conceptos clave de RabbitMQ
+
+**Cola (Queue)**: almacén de mensajes. Los mensajes se encolan y se entregan en orden (FIFO). En este proyecto la cola se llama `default`.
+
+**Productor**: quien publica mensajes en la cola. En este proyecto es Laravel (a través de los Jobs).
+
+**Consumidor (Worker)**: proceso que escucha la cola y procesa los mensajes. Se arranca con `php artisan queue:work rabbitmq`.
+
+**Exchange**: punto de entrada por el que los productores envían mensajes. El exchange decide a qué colas enrutar el mensaje según reglas. En la configuración básica de este proyecto se usa el exchange por defecto.
+
+**Vhost (Virtual Host)**: espacio de nombres dentro de RabbitMQ, como una base de datos separada. Se usa `/` (el vhost raíz) por defecto.
+
+**Mensaje**: el contenido que viaja por la cola. En este proyecto cada mensaje es un Job serializado de Laravel con el evento de dominio (`game_session.started`, etc.).
+
+**ACK (Acknowledgement)**: confirmación de que un mensaje fue procesado correctamente. Si el worker confirma (ACK), RabbitMQ elimina el mensaje de la cola. Si falla, RabbitMQ puede reencolarlo.
+
+---
+
+### Cómo está integrado RabbitMQ en este proyecto
+
+La integración tiene tres capas:
+
+**1. Infraestructura** — Docker levanta RabbitMQ como contenedor:
+```yaml
+rabbitmq:
+  image: rabbitmq:3-management
+  ports:
+    - "5672:5672"   # puerto AMQP (protocolo de mensajería)
+    - "15672:15672" # panel web de administración
+```
+
+**2. Laravel** — el paquete `vladimir-yuldashev/laravel-queue-rabbitmq` hace que el sistema de colas de Laravel use RabbitMQ como backend en lugar de la base de datos. La conexión se declara en `config/queue.php` y se activa con `QUEUE_CONNECTION=rabbitmq` en `.env`.
+
+**3. Código de aplicación** — tres archivos definen la cadena completa:
+
+```
+app/Events/GameSessionStarted.php     ← el hecho que ocurrió
+app/Listeners/PublishGameSessionToRabbitMQ.php  ← reacciona al evento
+app/Jobs/ProcessDomainEvent.php       ← el trabajo que va a la cola
+```
+
+El flujo exacto cuando un jugador inicia una partida:
+
+```
+1. Código de juego llama a: GameSessionStarted::dispatch(userId: 1, ...)
+2. Laravel dispara el evento
+3. El Listener intercepta el evento y crea un Job
+4. El Job se serializa y se envía a la cola "default" de RabbitMQ
+5. El Worker (proceso separado) recibe el Job y ejecuta handle()
+6. handle() registra el evento en el log (en este proyecto)
+   → en producción aquí iría: enviar email, actualizar estadísticas, etc.
+```
+
+---
+
+### Cómo probar que RabbitMQ funciona (paso a paso)
+
+#### Requisitos previos
+
+- Docker corriendo con el contenedor de RabbitMQ activo
+- Base de datos migrada (`php artisan migrate`)
+
+#### Paso 1 — Levantar RabbitMQ
+
+```bash
+docker compose up rabbitmq
+```
+
+Espera hasta ver en los logs del contenedor:
+```
+Server startup complete; 4 plugins started.
+```
+
+#### Paso 2 — Verificar el panel web
+
+Abre `http://localhost:15672` en el navegador.
+
+- Usuario: `guest`
+- Contraseña: `guest`
+
+Deberías ver el dashboard de RabbitMQ. En la pestaña **Queues** aún no hay colas (se crean al primer mensaje).
+
+#### Paso 3 — Arrancar el worker de Laravel
+
+En una terminal separada desde `enso-crm/`:
+
+```bash
+php artisan queue:work rabbitmq --verbose
+```
+
+Si la conexión es correcta verás:
+```
+INFO  Processing jobs from the [default] queue.
+```
+
+El worker queda esperando mensajes (no hace nada hasta que llega uno).
+
+#### Paso 4 — Publicar un evento de prueba
+
+En otra terminal, abre tinker:
+
+```bash
+php artisan tinker
+```
+
+Dentro de tinker, despacha el evento:
+
+```php
+\App\Events\GameSessionStarted::dispatch(
+    userId: 1,
+    gameType: 'memory',
+    sessionId: 'test-' . uniqid()
+);
+```
+
+#### Paso 5 — Verificar los resultados
+
+**En la terminal del worker** deberías ver inmediatamente:
+```
+2026-04-27 17:03:47 App\Jobs\ProcessDomainEvent ... RUNNING
+2026-04-27 17:03:47 App\Jobs\ProcessDomainEvent ... DONE
+```
+
+**En `storage/logs/laravel.log`** (al final del archivo):
+```
+[RabbitMQ] Domain event received
+{"event":"game_session.started","payload":{"user_id":1,"game_type":"memory",...}}
+```
+
+**En el panel web** (`http://localhost:15672` → Queues → default):
+- La cola `default` habrá aparecido
+- El contador `messages_acked` habrá subido (mensajes procesados correctamente)
+- `messages_ready` será 0 porque el worker los procesó antes de que puedas mirar
+
+> Si quieres ver mensajes pendientes en el panel, para el worker antes de despachar el evento. Los mensajes quedarán en `ready: 1` hasta que lo vuelvas a arrancar.
+
+---
+
+### Por qué los mensajes desaparecen tan rápido del panel
+
+RabbitMQ no es una base de datos permanente: los mensajes existen en la cola solo mientras esperan ser procesados. Un mensaje bien procesado se elimina de la cola (ACK). Esto es por diseño: el objetivo es procesar y vaciar, no almacenar.
+
+Para ver el historial de mensajes procesados tienes dos opciones:
+1. **Panel web → Queues → default → Message rates**: gráfica de mensajes publicados y consumidos en el tiempo
+2. **Los logs de Laravel**: `storage/logs/laravel.log` guarda cada ejecución del Job
+
+---
+
+### ¿Qué es MCP y para qué sirve?
+
+MCP (Model Context Protocol) es un protocolo estándar creado por Anthropic que permite conectar herramientas de IA (Claude, Gemini, aplicaciones con OpenAI) a sistemas externos de forma controlada.
+
+La clave para entenderlo: **Claude no "sabe" usar GitHub ni RabbitMQ por defecto**. Para que pueda operar sobre ellos, hay que conectarle explícitamente un servidor MCP que actúe de puente. Claude habla con el servidor MCP, el servidor MCP habla con el sistema externo, y los resultados vuelven a Claude.
+
+```
+Claude Code  <-->  Servidor MCP GitHub  <-->  API de GitHub
+Claude Code  <-->  Servidor MCP RabbitMQ  <-->  RabbitMQ broker
+```
+
+Esto tiene una ventaja de seguridad importante: puedes controlar exactamente a qué tiene acceso Claude. En este proyecto Claude solo puede hacer `repos`, `issues` y `pull_requests` en GitHub — no puede borrar ramas ni acceder a otros repositorios.
+
+---
+
+### El MCP de GitHub: qué puede hacer Claude con él
+
+Con el servidor MCP de GitHub activo, en lugar de explicarle conceptos a Claude, puedes pedirle acciones reales:
+
+| Sin MCP | Con MCP |
+|---|---|
+| "Explícame qué es una pull request" | "Revisa la PR #12 y dime si falta validación en la API" |
+| "¿Cómo creo una issue en GitHub?" | "Crea una issue para refactorizar web.php con un checklist" |
+| "¿Qué hace el código de esta rama?" | "Lee la rama feature/chat y dime si rompe algo del sistema de roles" |
+
+El servidor MCP que se usa es el oficial de GitHub (`ghcr.io/github/github-mcp-server`), que corre como contenedor Docker. La configuración está en `.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "-e", "GITHUB_TOOLSETS=repos,issues,pull_requests",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+**`GITHUB_TOOLSETS`** limita las operaciones disponibles. No se le da acceso a `actions`, `code_security` ni `administration` porque no hacen falta y reducen el riesgo de operaciones no deseadas.
+
+**`${GITHUB_TOKEN}`** es una referencia a una variable de entorno del sistema operativo. El token nunca se hardcodea en el archivo de configuración para no commitear credenciales al repositorio (aunque `.claude/` está en `.gitignore`).
+
+Para configurar el token en Windows:
+```
+Panel de control → Sistema → Variables de entorno → Nueva
+Nombre: GITHUB_TOKEN
+Valor: ghp_tuTokenAqui
+```
+
+---
+
+### El MCP de RabbitMQ: qué puede hacer Claude con él
+
+Con el servidor MCP de RabbitMQ activo, Claude puede operar sobre el broker sin necesidad de abrir el panel web:
+
+```
+"¿Cuántos mensajes hay en la cola default?"
+"¿Qué colas existen en el vhost /?"
+"¿Hay alguna cola con mensajes sin procesar acumulados?"
+"Lista los exchanges disponibles"
+```
+
+El servidor que se usa es `amq-mcp-server-rabbitmq` (de Amazon MQ), que se instala y ejecuta con `uvx` (el gestor de herramientas Python de `uv`):
+
+```json
+{
+  "mcpServers": {
+    "rabbitmq": {
+      "command": "uvx",
+      "args": ["amq-mcp-server-rabbitmq@latest", "--allow-mutative-tools"],
+      "env": {
+        "RABBITMQ_URL": "amqp://guest:guest@localhost:5672/"
+      }
+    }
+  }
+}
+```
+
+**`--allow-mutative-tools`** habilita operaciones de escritura (crear colas, publicar mensajes de prueba). Sin este flag solo se pueden hacer operaciones de lectura.
+
+**`RABBITMQ_URL`** usa el formato AMQP estándar: `amqp://usuario:contraseña@host:puerto/vhost`.
+
+---
+
+### Cómo verificar que los servidores MCP están activos en Claude Code
+
+En Claude Code (VS Code o terminal), ejecuta el comando:
+```
+/mcp
+```
+
+Deberías ver algo como:
+```
+● github    connected
+● rabbitmq  connected
+```
+
+Si alguno aparece como `disconnected`:
+- **github**: verifica que Docker está corriendo y que la variable `GITHUB_TOKEN` existe en el sistema
+- **rabbitmq**: verifica que `uvx` está instalado (`uvx --version`) y que RabbitMQ está corriendo
+
+---
+
+### La arquitectura completa vista de forma pedagógica
+
+Estos tres sistemas (Laravel + RabbitMQ + MCP) resuelven tres problemas distintos que coexisten en cualquier proyecto real:
+
+**Laravel** resuelve el problema de la lógica de negocio: autenticación, CRUD, API, vistas. Es el núcleo de la aplicación. Sin Laravel no hay aplicación.
+
+**RabbitMQ** resuelve el problema del acoplamiento temporal: si el envío de un email o el cálculo de estadísticas tarda 3 segundos, ¿debe el usuario esperar esos 3 segundos para recibir una respuesta? No. RabbitMQ permite que Laravel diga "aquí está tu respuesta, el resto se hará después" y delegar el trabajo a procesos independientes (workers). Hace la aplicación más resistente a fallos: si el worker cae, los mensajes siguen en la cola esperando.
+
+**MCP** resuelve el problema de la asistencia inteligente en el flujo de trabajo: permite que una IA opere sobre el repositorio y la infraestructura con acceso controlado, sin que el desarrollador tenga que abandonar su entorno de trabajo para ir a GitHub a crear una issue o al panel de RabbitMQ a comprobar una cola.
+
+```
+Flujo de desarrollo con los tres activos:
+
+1. Desarrollador trabaja en una feature en VS Code
+2. Pide a Claude (via MCP GitHub): "Revisa esta rama antes de la PR"
+3. Claude lee el código y sugiere mejoras
+4. Desarrollador sube el código y abre la PR
+5. Laravel, al detectar el evento, publica un mensaje en RabbitMQ
+6. Un worker procesa el mensaje (notifica al equipo, lanza tests, etc.)
+7. Claude puede consultar el estado de las colas via MCP RabbitMQ:
+   "¿Se procesaron todos los eventos de esta sesión?"
+```
+
+El resultado es un proyecto que no solo funciona, sino que incorpora una forma de trabajar propia de entornos profesionales reales: código versionado, eventos desacoplados y asistencia inteligente integrada en el flujo.
