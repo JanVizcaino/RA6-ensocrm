@@ -1,5 +1,3 @@
----
-
 # ENSO CRM — Plataforma de juegos cognitivos
 
 ENSO CRM es una plataforma web para la gestión y análisis de juegos cognitivos que he desarrollado como proyecto académico en dos módulos: **Desarrollo Web en Entorno Servidor** y **Despliegue de Aplicaciones Web**.
