@@ -4,11 +4,21 @@ services:
   facial-api:
     build: ./microservicio_facial
     container_name: enso_lite_facial
+    restart: unless-stopped
     ports:
       - "8181:5000"
-    restart: always
+    environment:
+      - LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     volumes:
       - enso_lite_deepface_models:/root/.deepface
+    networks:
+      - production_net
 
   db:
     image: postgres:15-alpine
@@ -22,6 +32,8 @@ services:
       - "5434:5432"
     volumes:
       - enso_lite_db_data:/var/lib/postgresql/data
+    networks:
+      - production_net
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -35,6 +47,8 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
     volumes:
       - enso_lite_rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - production_net
 
   reverb:
     build:
@@ -59,8 +73,57 @@ services:
       CACHE_STORE: file
       REVERB_HOST: localhost
       REVERB_PORT: 8080
+    networks:
+      - production_net
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: enso_lite_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # Soporte para HTTP/3 (QUIC)
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./logs:/var/log/caddy
+    networks:
+      - production_net
+    depends_on:
+      - facial-api
+
+  uptime_kuma:
+    image: louislam/uptime-kuma:1
+    container_name: enso_lite_uptime_kuma
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - uptime-kuma-data:/app/data
+    networks:
+      - production_net
+  
+  duckdns:
+      image: lscr.io/linuxserver/duckdns:latest
+      container_name: enso_lite_duckdns
+      restart: unless-stopped
+      environment:
+        - SUBDOMAINS=tu-subdominio-aqui  # Solo la parte de antes de .duckdns.org
+        - TOKEN=23b6f94f-e49f-4d03-863d-5fc164dbf80b
+        - LOG_LEVEL=info
+      networks:
+        - production_net
 
 volumes:
   enso_lite_deepface_models:
   enso_lite_db_data:
   enso_lite_rabbitmq_data:
+  caddy_data:
+  caddy_config:
+  uptime-kuma-data:
+
+networks:
+  production_net:
+    driver: bridge

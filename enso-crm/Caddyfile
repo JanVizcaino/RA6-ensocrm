@@ -1,0 +1,34 @@
+enso-lite.duckdns.org {
+    # 1. Configuración del proxy inverso
+    # Apuntamos exactamente al nombre del servicio en Docker y su puerto interno
+    reverse_proxy facial-api:5000 {
+        # Health check interno para que Caddy sepa si la API está viva
+        health_uri /health
+        health_interval 30s
+        health_timeout 10s
+    }
+
+    # 2. Headers de seguridad
+    header {
+        # HSTS: fuerza HTTPS durante 1 año
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        # Prevenir clickjacking
+        X-Frame-Options "SAMEORIGIN"
+        # Prevenir MIME sniffing
+        X-Content-Type-Options "nosniff"
+        # Política de referrer
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Content Security Policy básica
+        Content-Security-Policy "default-src 'self'"
+        # Eliminar header de versión del servidor (Seguridad por oscuridad)
+        -Server
+    }
+
+    # 3. Logging estructurado
+    # Esta ruta es interna del contenedor Caddy, que en tu compose ya
+    # se mapea a la carpeta ./logs que creaste antes en la Raspberry.
+    log {
+        output file /var/log/caddy/access.log
+        format json
+    }
+}
