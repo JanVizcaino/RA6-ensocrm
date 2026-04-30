@@ -17,6 +17,17 @@ services:
       start_period: 40s
     volumes:
       - enso_lite_deepface_models:/root/.deepface
+    # Hardening de seguridad
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run
     networks:
       - production_net
 

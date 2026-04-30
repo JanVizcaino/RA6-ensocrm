@@ -1,11 +1,37 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from deepface import DeepFace
 import shutil
 import os
 import tempfile
+import logging
 from datetime import datetime, timezone
+from pythonjsonlogger import jsonlogger
+
+# Configuración del logger estructurado JSON
+logHandler = logging.StreamHandler()
+formatter = jsonlogger.JsonFormatter('%(asctime)s %(name)s %(levelname)s %(message)s')
+logHandler.setFormatter(formatter)
+logger = logging.getLogger()
+logger.addHandler(logHandler)
+logger.setLevel(logging.INFO)
 
 app = FastAPI(title="ENSO Facial Service", version="1.0.0")
+
+# Configuración segura de CORS
+origins = [
+    "https://enso-lite.duckdns.org",
+    # "http://localhost:3000",  # Descomentar solo en desarrollo local
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+    max_age=3600,
+)
 
 @app.get("/health")
 def health():
@@ -45,7 +71,13 @@ async def verify(
             distance_metric="cosine"
         )
 
-        print(f"Distance: {result['distance']}, Threshold: {result['threshold']}, Verified: {result['verified']}")
+        logger.info("Verification completed", extra={
+            "endpoint": "/verify",
+            "method": "POST",
+            "distance": float(result["distance"]),
+            "threshold": float(result["threshold"]),
+            "verified": result["verified"]
+        })
 
         verified = result["distance"] < 0.5
 
