@@ -3,12 +3,21 @@ from deepface import DeepFace
 import shutil
 import os
 import tempfile
+from datetime import datetime, timezone
 
-app = FastAPI(title="ENSO Facial Service")
+app = FastAPI(title="ENSO Facial Service", version="1.0.0")
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "version": app.version
+    }
+
+@app.get("/ready")
+def ready():
+    return {"status": "ready"}
 
 @app.post("/verify")
 async def verify(

@@ -22,3 +22,12 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+venv/
+__pycache__/
+.pytest_cache/
+
+/microservicio_facial/venv/
+/microservicio_facial/__pycache__/
+/microservicio_facial/.pytest_cache/
+/microservicio_facial/.coverage
