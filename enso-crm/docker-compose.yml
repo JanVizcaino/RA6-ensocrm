@@ -124,7 +124,7 @@ services:
       container_name: enso_lite_duckdns
       restart: unless-stopped
       environment:
-        - SUBDOMAINS=tu-subdominio-aqui  # Solo la parte de antes de .duckdns.org
+        - SUBDOMAINS=enso-lite
         - TOKEN=23b6f94f-e49f-4d03-863d-5fc164dbf80b
         - LOG_LEVEL=info
       networks:
