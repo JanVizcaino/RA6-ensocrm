@@ -100,6 +100,9 @@ services:
       - caddy_data:/data
       - caddy_config:/config
       - ./logs:/var/log/caddy
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     networks:
       - production_net
     depends_on:
