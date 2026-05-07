@@ -33,6 +33,15 @@ app.add_middleware(
     max_age=3600,
 )
 
+@app.get("/")
+def root():
+    return {
+        "service": "ENSO Facial Service",
+        "status": "running",
+        "version": app.version,
+        "docs": "/docs"
+    }
+
 @app.get("/health")
 def health():
     return {
