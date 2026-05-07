@@ -1,4 +1,4 @@
-enso-lite.duckdns.org {
+:80 {
     # 1. Configuración del proxy inverso
     # Apuntamos exactamente al nombre del servicio en Docker y su puerto interno
     reverse_proxy facial-api:5000 {
